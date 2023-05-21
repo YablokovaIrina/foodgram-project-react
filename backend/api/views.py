@@ -1,11 +1,11 @@
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
-
 from rest_framework import mixins, permissions, status, views, viewsets
 from rest_framework.views import APIView
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from djoser.serializers import SetPasswordSerializer
+from djoser import views
 
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
                             ShoppingCart, Tag)
