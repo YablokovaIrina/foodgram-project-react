@@ -1,26 +1,26 @@
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.response import Response
-from rest_framework import mixins, permissions, status, views, viewsets
-from rest_framework.views import APIView
-from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
-from djoser.serializers import SetPasswordSerializer
 from djoser import views
+from djoser.serializers import SetPasswordSerializer
+from rest_framework import mixins, permissions, status, viewsets
+from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
                             ShoppingCart, Tag)
-from users.models import User, Follow
+from users.models import Follow, User
+from users.validators import validate_username
 
 from .filters import IngredientSearchFilter, RecipesFilter
 from .pagination import RecipesFollowsPagination
 from .permissions import (AdminPermission, CurrentUserPermission,
                           ReadOnlyPermission)
-from .serializers import (UserFoodCreateSerializer,
-                          UserFoodSerializer, FavouritesSerializer,
-                          FollowSerializer, IngredientSerializer,
-                          RecipeSerializer, RecipeWriteSerializer,
-                          ShoppingCartSerializer, TagSerializer)
-from users.validators import validate_username
+from .serializers import (FavouritesSerializer, FollowSerializer,
+                          IngredientSerializer, RecipeSerializer,
+                          RecipeWriteSerializer, ShoppingCartSerializer,
+                          TagSerializer, UserFoodCreateSerializer,
+                          UserFoodSerializer)
 
 
 class UsersViewSet(views.UserViewSet):
@@ -31,7 +31,7 @@ class UsersViewSet(views.UserViewSet):
     def get_serializer_class(self):
         if self.action == 'create':
             return UserFoodCreateSerializer
-        elif self.action == 'set_password':
+        if self.action == 'set_password':
             return SetPasswordSerializer
         return UserFoodSerializer
 
@@ -45,7 +45,7 @@ class FollowGetViewSet(viewsets.ModelViewSet):
     pagination_class = RecipesFollowsPagination
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return self.request.user.follower.all()
 
 
 class FollowViewSet(viewsets.ModelViewSet):
@@ -150,16 +150,16 @@ class FavouriteViewSet(
         return Favourites.objects.filter(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        favourite_recipe = get_object_or_404(Recipe, id=self.kwargs.get('pk'))
+        favorite_recipe = get_object_or_404(Recipe, id=self.kwargs.get('pk'))
         user = self.request.user
         serializer = FavouritesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(user=user, favourite_recipe=favourite_recipe)
+        serializer.save(user=user, favorite_recipe=favorite_recipe)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, *args, **kwargs):
-        favourite_recipe = get_object_or_404(Recipe, id=self.kwargs.get('pk'))
-        Favourites.objects.get(favourite_recipe=favourite_recipe).delete()
+        favorite_recipe = get_object_or_404(Recipe, id=self.kwargs.get('pk'))
+        Favourites.objects.get(favorite_recipe=favorite_recipe).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

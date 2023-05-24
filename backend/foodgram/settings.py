@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -168,3 +169,7 @@ MAX_LENGHT_USER = 150
 MAX_LENGHT = 200
 MAX_LENGHT_COLOR = 7
 FORBIDDEN_NAME = 'me'
+MIN_COOKING_TIME = 1
+MAX_COOKING_TIME = 32000
+MIN_AMOUNT = 1
+MAX_AMOUNT = 32000
