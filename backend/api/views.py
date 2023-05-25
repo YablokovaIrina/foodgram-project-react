@@ -52,7 +52,6 @@ class FollowBaseViewSet(viewsets.GenericViewSet):
     def get_queryset(self):
         return self.request.user.follower.all()
 
-
 class FollowGetViewSet(
     mixins.ListModelMixin,
     FollowBaseViewSet
@@ -74,8 +73,7 @@ class FollowViewSet(
     def create(self, request, *args, **kwargs):
         author_id = self.kwargs.get('author_id')
         author = get_object_or_404(User, id=author_id)
-        serializer = FavouritesSerializer(author, data=request.data,
-                context={'request': request})
+        serializer = FollowSerializer(author)
         Follow.objects.create(
             user=request.user,
             author=author
