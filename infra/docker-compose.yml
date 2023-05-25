@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.3'
 
 services:
   db:
@@ -20,7 +20,7 @@ services:
       - ./.env
 
   frontend:
-    image: yablokovairina/foodgram_frontend:latest
+    image: yablokovairina/foodgram_frontend:v1.0
     volumes:
       - ../frontend/:/app/result_build/
     depends_on:
@@ -40,4 +40,6 @@ services:
       - frontend
 
 volumes:
+  static_value:
+  media_value:
   db_data:
