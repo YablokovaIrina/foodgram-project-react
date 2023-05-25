@@ -12,6 +12,13 @@ class UserFoodCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'email', 'username', 'first_name', 'last_name', 'password')
+        required_fields = (
+            'email',
+            'username',
+            'first_name',
+            'last_name',
+            'password'
+        )
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
@@ -33,16 +40,14 @@ class UserFoodSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         return (self.context['request'].user.is_authenticated
-                and Follow.objects.filter(
-                    user=self.context['request'].user,
-                    author=obj
-        ).exists())
+                and self.context['request'].user.follower.filter(
+                    author=obj).exists())
 
 
 class RecipeFollowSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
-        fields = ('id', 'name', 'cooking_time', 'image',)
+        fields = ('id', 'name', 'cooking_time', 'image')
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -76,16 +81,13 @@ class FollowSerializer(serializers.ModelSerializer):
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
     def get_is_subscribed(self, obj):
-        return Follow.objects.filter(
-            user=self.context['request'].user,
-            author=obj.author).exists()
+        return self.context['request'].user.follower.filter(
+                    author=obj).exists()
 
     def validate(self, data):
         author = self.context.get('author')
         user = self.context.get('request').user
-        if Follow.objects.filter(
-                author=author,
-                user=user).exists():
+        if user.follower.filter(author=author).exists():
             raise serializers.ValidationError(
                 detail='Вы уже подписаны на этого автора!',
             )
@@ -96,19 +98,19 @@ class FollowSerializer(serializers.ModelSerializer):
         return data
 
     def get_recipes(self, obj):
-        try:
-            recipe_limit = int(
-                self.context.get('request').query_params['recipes_limit']
-            )
-            queryset = Recipe.objects.filter(author=obj.author)[:recipe_limit]
-        except Exception:
-            queryset = Recipe.objects.filter(author=obj.author)
-        serializer = FollowSerializer(queryset, read_only=True, many=True)
-
+        queryset = obj.recipes.all()
+        limit = self.context['request'].query_params['recipes_limit']
+        if limit:
+            try:
+                limit = int(limit)
+                queryset = queryset[:limit]
+            except ValueError:
+                pass
+        serializer = RecipeFollowSerializer(queryset, many=True)
         return serializer.data
 
     def get_recipes_count(self, obj):
-        return obj.author.recipes.count()
+        return obj.recipes.count()
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -152,9 +154,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'tags', 'author', 'ingredients',
-                  'is_favorited', 'is_in_shopping_cart',
-                  'name', 'image', 'text', 'cooking_time',)
+        fields = '__all__'
 
     def get_is_favorited(self, obj):
         user = self.context['request'].user
@@ -191,6 +191,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
+        required_fields = (
+            'ingredients',
+            'tags',
+            'image',
+            'name',
+            'text',
+            'cooking_time'
+        )
         exclude = ('pub_date',)
 
     def add_tags(self, tags, recipe):
@@ -231,9 +239,9 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             'cooking_time',
             instance.cooking_time
         )
+        instance.save()
         self.add_tags(tags, instance)
         self.add_ingredient(ingredients, instance)
-        instance.save()
         return instance
 
 

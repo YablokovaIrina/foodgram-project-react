@@ -23,7 +23,7 @@ class RecipeAdmin(admin.ModelAdmin):
     inlines = (RecipeIngredientInline, )
 
     def count_favorites(self, obj):
-        return obj.favourites.count()
+        return obj.favorite_recipe.count()
 
 
 admin.site.register(Tag, TagAdmin)

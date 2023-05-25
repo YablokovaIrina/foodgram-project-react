@@ -1,6 +1,7 @@
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser import views
+from djoser.views import UserViewSet
 from djoser.serializers import SetPasswordSerializer
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
@@ -23,7 +24,7 @@ from .serializers import (FavouritesSerializer, FollowSerializer,
                           UserFoodSerializer)
 
 
-class UsersViewSet(views.UserViewSet):
+class UsersViewSet(UserViewSet):
 
     def get_queryset(self):
         return User.objects.all()
@@ -35,39 +36,51 @@ class UsersViewSet(views.UserViewSet):
             return SetPasswordSerializer
         return UserFoodSerializer
 
+    def get_permissions(self):
+        if self.action == 'retrieve':
+            self.permission_classes = [permissions.IsAuthenticated]
+        return super().get_permissions()
+
     def validate_username(self, value):
         return validate_username(value)
 
 
-class FollowGetViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+class FollowBaseViewSet(viewsets.GenericViewSet):
     serializer_class = FollowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Follow.objects.filter(user=self.request.user)
+
+class FollowGetViewSet(
+    mixins.ListModelMixin,
+    FollowBaseViewSet
+):
     pagination_class = RecipesFollowsPagination
 
-    def get_queryset(self):
-        return self.request.user.follower.all()
 
+class FollowViewSet(
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    FollowBaseViewSet
+):
 
-class FollowViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-    serializer_class = FollowSerializer
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['author_id'] = self.kwargs.get('user_id')
+        return context
 
-    def get_queryset(self):
-        return self.request.user.follower.all()
-
-    def perform_create(self, request):
+    def create(self, request, *args, **kwargs):
         author_id = self.kwargs.get('author_id')
         author = get_object_or_404(User, id=author_id)
-        Follow.objects.create(user=self.request.user, author=author)
-        serializer = FollowSerializer(
-            get_object_or_404(Follow, user=request.user,
-                              author=author),
-            many=False
+        Follow.objects.create(
+            user=request.user,
+            author=author
         )
-        serializer.save()
-        return Response(status=status.HTTP_201_CREATED)
+        serializer = FavouritesSerializer(author)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def delete(self, request):
+    def delete(self, request, *args, **kwargs):
         author_id = self.kwargs.get('author_id')
         author = get_object_or_404(User, id=author_id)
         get_object_or_404(
@@ -89,6 +102,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
     serializer_class = IngredientSerializer
     permission_classes = (AdminPermission | ReadOnlyPermission,)
     filter_backends = (IngredientSearchFilter,)
+    search_fields = ('^name',)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -149,17 +163,27 @@ class FavouriteViewSet(
     def get_queryset(self):
         return Favourites.objects.filter(user=self.request.user)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['recipe_id'] = self.kwargs.get('recipe_id')
+        return context
+
     def create(self, request, *args, **kwargs):
-        favorite_recipe = get_object_or_404(Recipe, id=self.kwargs.get('pk'))
-        user = self.request.user
-        serializer = FavouritesSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(user=user, favorite_recipe=favorite_recipe)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        recipe_id = self.kwargs.get('recipe_id')
+        favorite_recipe = get_object_or_404(Recipe, id=recipe_id)
+        Favourites.objects.create(
+            user=request.user,
+            favorite_recipe=favorite_recipe
+        )
+        serializer = FavouritesSerializer(favorite_recipe)
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, *args, **kwargs):
-        favorite_recipe = get_object_or_404(Recipe, id=self.kwargs.get('pk'))
-        Favourites.objects.get(favorite_recipe=favorite_recipe).delete()
+        recipe_id = self.kwargs.get('recipe_id')
+        favorite_recipe = get_object_or_404(Recipe, id=recipe_id)
+        get_object_or_404(Favourites,
+                          user=request.user,
+                          favorite_recipe=favorite_recipe).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -168,7 +192,7 @@ class ShoppingCartViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     queryset = ShoppingCart.objects.all()
 
     def get_serializer_context(self):
@@ -195,10 +219,20 @@ class ShoppingCartViewSet(
 
 
 class ShoppingListDownload(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get_shopping_list(self, response):
-        shopping_cart = ShoppingCart.objects.filter(user=self.request.user)
+    def get_queryset(self):
+        return self.request.user.shopping_cart.all()
+
+    def get(self):
+        response = HttpResponse(content_type='text/plain')
+        response['Content-Disposition'] = (
+            'attachment; filename="shopping_list.txt"'
+        )
+        return self._create_shopping_list(self.get_queryset(), response)
+
+    def _create_shopping_list(self, response):
+        shopping_cart = self.request.user.shopping_cart.all()
         shopping_list = {}
         response.write('Мой список продуктов:\n')
         for item in shopping_cart:

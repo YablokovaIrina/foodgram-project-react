@@ -8,12 +8,12 @@ from .views import (FavouriteViewSet, FollowGetViewSet, FollowViewSet,
 router = DefaultRouter()
 
 router.register(
-    'users/subscriptions',
+    r'users/subscriptions/',
     FollowGetViewSet,
     basename='subscriptions'
 )
 router.register(
-    r'users/(?P<user_id>\d+)/subscribe',
+    r'users/(?P<user_id>\d+)/subscribe/',
     FollowViewSet,
     basename='subscribe'
 )
@@ -32,13 +32,13 @@ router.register(
     basename='shopping_cart'
 )
 
+
 urlpatterns = [
     path('auth/', include('djoser.urls.authtoken')),
+    path(
+        'recipes/download_shopping_cart/',
+        ShoppingListDownload.as_view()
+    ),
     path('', include(router.urls)),
     path('', include('djoser.urls')),
-    path(
-        'recipes/download_shopping_cart',
-        ShoppingListDownload.as_view(),
-        name='download'
-    ),
 ]
