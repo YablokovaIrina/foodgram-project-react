@@ -1,9 +1,8 @@
-from drf_extra_fields.fields import Base64ImageField
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers
-
+from drf_extra_fields.fields import Base64ImageField
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
-                            ShoppingCart, Tag, TagRecipe)
+                            ShoppingCart, Tag, TagRecipe,)
+from rest_framework import serializers
 from users.models import Follow, User
 
 
@@ -83,7 +82,8 @@ class FollowSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         return self.context['request'].user.follower.filter(
-                    author=obj).exists()
+            author=obj
+        ).exists()
 
     def validate(self, data):
         author_id = self.context.get(

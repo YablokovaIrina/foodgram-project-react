@@ -1,9 +1,7 @@
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-
-from foodgram.settings import (MAX_LENGHT, MAX_LENGHT_COLOR,
-                               MAX_COOKING_TIME, MIN_COOKING_TIME,
-                               MIN_AMOUNT, MAX_AMOUNT)
+from foodgram.settings import (MAX_AMOUNT, MAX_COOKING_TIME, MAX_LENGHT,
+                               MAX_LENGHT_COLOR, MIN_AMOUNT, MIN_COOKING_TIME,)
 from users.models import User
 
 

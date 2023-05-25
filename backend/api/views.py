@@ -1,27 +1,26 @@
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, get_list_or_404
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser.views import UserViewSet
 from djoser.serializers import SetPasswordSerializer
+from djoser.views import UserViewSet
+from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
+                            ShoppingCart, Tag,)
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
-                            ShoppingCart, Tag)
 from users.models import Follow, User
 from users.validators import validate_username
 
 from .filters import IngredientSearchFilter, RecipesFilter
 from .pagination import RecipesFollowsPagination
 from .permissions import (AdminPermission, CurrentUserPermission,
-                          ReadOnlyPermission)
+                          ReadOnlyPermission,)
 from .serializers import (FavouritesSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
                           RecipeWriteSerializer, ShoppingCartSerializer,
                           TagSerializer, UserFoodCreateSerializer,
-                          UserFoodSerializer)
+                          UserFoodSerializer,)
 
 
 class UsersViewSet(UserViewSet):
@@ -51,6 +50,7 @@ class FollowBaseViewSet(viewsets.GenericViewSet):
 
     def get_queryset(self):
         return self.request.user.follower.all()
+
 
 class FollowGetViewSet(
     mixins.ListModelMixin,
@@ -200,7 +200,7 @@ class ShoppingCartViewSet(
         context['recipe_id'] = self.kwargs.get('recipe_id')
         return context
 
-    def create(self, request,  *args, **kwargs):
+    def create(self, request, *args, **kwargs):
         recipe_id = self.kwargs.get('recipe_id')
         recipe = get_object_or_404(Recipe, id=recipe_id)
         ShoppingCart.objects.create(
