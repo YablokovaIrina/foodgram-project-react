@@ -1,4 +1,5 @@
 from drf_extra_fields.fields import Base64ImageField
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
@@ -85,7 +86,9 @@ class FollowSerializer(serializers.ModelSerializer):
                     author=obj).exists()
 
     def validate(self, data):
-        author = self.context.get('author')
+        author_id = self.context.get(
+            'request').parser_context.get('kwargs').get('id')
+        author = get_object_or_404(User, id=author_id)
         user = self.context.get('request').user
         if user.follower.filter(author=author).exists():
             raise serializers.ValidationError(

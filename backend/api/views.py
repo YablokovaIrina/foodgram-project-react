@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, get_list_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
 from djoser.serializers import SetPasswordSerializer
@@ -50,7 +50,8 @@ class FollowBaseViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return self.request.user.follower.all()
+
 
 class FollowGetViewSet(
     mixins.ListModelMixin,
@@ -73,11 +74,12 @@ class FollowViewSet(
     def create(self, request, *args, **kwargs):
         author_id = self.kwargs.get('author_id')
         author = get_object_or_404(User, id=author_id)
+        serializer = FavouritesSerializer(author, data=request.data,
+                context={'request': request})
         Follow.objects.create(
             user=request.user,
             author=author
         )
-        serializer = FavouritesSerializer(author)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, *args, **kwargs):
