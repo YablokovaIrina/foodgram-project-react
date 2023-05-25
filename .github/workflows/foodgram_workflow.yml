@@ -64,9 +64,7 @@ jobs:
           script: |
             sudo docker-compose stop
             sudo docker-compose rm backend
-            sudo docker-compose rm db
             sudo docker-compose pull backend
-            sudo docker-compose pull db
             sudo docker pull yablokovairina/foodgram_backend:latest
             touch .env
             echo DB_ENGINE=${{ secrets.DB_ENGINE }} >> .env
