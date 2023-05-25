@@ -7,7 +7,7 @@ from recipes.models import Ingredient
 def load_ingredients():
     print('loading ingedients...')
     ingredients = []
-    with open(".recipes/data/ingredients.csv", encoding="utf-8-sig") as file:
+    with open("./recipes/data/ingredients.csv", encoding="utf-8-sig") as file:
         reader = csv.reader(file)
         for row in reader:
             ingredient = Ingredient(
