@@ -1,8 +1,9 @@
 from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
+from rest_framework import serializers
+
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
                             ShoppingCart, Tag, TagRecipe,)
-from rest_framework import serializers
 from users.models import Follow, User
 
 
@@ -39,9 +40,15 @@ class UserFoodSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, obj):
-        return (self.context['request'].user.is_authenticated
-                and self.context['request'].user.follower.filter(
-                    author=obj).exists())
+        user = self.context.get('request').user
+        return (
+            user.is_authenticated
+            and obj.follower.filter(
+                user=user, 
+                author=obj
+            ).exists()
+        )
+
 
 
 class RecipeFollowSerializer(serializers.ModelSerializer):
@@ -81,9 +88,14 @@ class FollowSerializer(serializers.ModelSerializer):
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
     def get_is_subscribed(self, obj):
-        return self.context['request'].user.follower.filter(
-            author=obj
-        ).exists()
+        user = self.context.get('request').user
+        return (
+            user.is_authenticated
+            and obj.follower.filter(
+                user=user, 
+                author=obj
+            ).exists()
+        )
 
     def validate(self, data):
         author_id = self.context.get(
@@ -161,13 +173,14 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         user = self.context['request'].user
-        return Favourites.objects.filter(
-            user=user, favorite_recipe=obj
+        return obj.favorite_recipe.filter(
+            user=user,
+            favorite_recipe=obj
         ).exists()
 
     def get_is_in_shopping_cart(self, obj):
         user = self.context['request'].user
-        return ShoppingCart.objects.filter(
+        return obj.in_shopping_cart.filter(
             user=user,
             recipe=obj
         ).exists()

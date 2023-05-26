@@ -3,15 +3,15 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.serializers import SetPasswordSerializer
 from djoser.views import UserViewSet
-from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
-                            ShoppingCart, Tag,)
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
+                            ShoppingCart, Tag,)
 from users.models import Follow, User
 from users.validators import validate_username
-
 from .filters import IngredientSearchFilter, RecipesFilter
 from .pagination import RecipesFollowsPagination
 from .permissions import (AdminPermission, CurrentUserPermission,
@@ -49,7 +49,8 @@ class FollowBaseViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return self.request.user.follower.all()
+        user = self.context.get('request').user
+        return user.follower.all()
 
 
 class FollowGetViewSet(
@@ -73,12 +74,11 @@ class FollowViewSet(
     def create(self, request, *args, **kwargs):
         author_id = self.kwargs.get('author_id')
         author = get_object_or_404(User, id=author_id)
-        serializer = FollowSerializer(author)
         Follow.objects.create(
             user=request.user,
             author=author
         )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(status=status.HTTP_201_CREATED)
 
     def delete(self, request, *args, **kwargs):
         author_id = self.kwargs.get('author_id')
@@ -160,8 +160,9 @@ class FavouriteViewSet(
     permission_classes = [IsAuthenticated]
     serializer_class = FavouritesSerializer
 
-    def get_queryset(self):
-        return Favourites.objects.filter(user=self.request.user)
+    def get_queryset(self, obj):
+        user = self.context.get('request').user
+        return obj.favorite_recipe.filter(user=user)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

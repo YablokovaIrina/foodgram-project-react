@@ -13,7 +13,7 @@ router.register(
     basename='subscriptions'
 )
 router.register(
-    'users/<user_id>/subscribe/',
+    r'users/(?P<user_id>\d+)/subscribe/',
     FollowViewSet,
     basename='subscribe'
 )
