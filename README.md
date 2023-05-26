@@ -50,7 +50,7 @@ DB_PORT=5432
 ```
 
 ### Foodgram развернут по адресу
-http://158.160.25.151/api/recipes
+http://158.160.25.151/recipes
 
 ### Для доступа в админку:
 irishkarusakova@icloud.com
