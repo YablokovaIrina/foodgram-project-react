@@ -44,11 +44,10 @@ class UserFoodSerializer(serializers.ModelSerializer):
         return (
             user.is_authenticated
             and obj.follower.filter(
-                user=user, 
+                user=user,
                 author=obj
             ).exists()
         )
-
 
 
 class RecipeFollowSerializer(serializers.ModelSerializer):
@@ -92,7 +91,7 @@ class FollowSerializer(serializers.ModelSerializer):
         return (
             user.is_authenticated
             and obj.follower.filter(
-                user=user, 
+                user=user,
                 author=obj
             ).exists()
         )
