@@ -90,7 +90,7 @@ class FollowSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and obj.follower.filter(
+            and obj.following.filter(
                 user=user,
                 author=obj
             ).exists()
@@ -101,7 +101,7 @@ class FollowSerializer(serializers.ModelSerializer):
             'request').parser_context.get('kwargs').get('id')
         author = get_object_or_404(User, id=author_id)
         user = self.context.get('request').user
-        if user.follower.filter(author=author).exists():
+        if user.following.filter(author=author).exists():
             raise serializers.ValidationError(
                 detail='Вы уже подписаны на этого автора!',
             )

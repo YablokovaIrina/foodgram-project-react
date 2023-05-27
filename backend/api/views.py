@@ -46,7 +46,7 @@ class FollowBaseViewSet(viewsets.GenericViewSet):
 
     def get_queryset(self):
         user = self.context.get('request').user
-        return user.follower.all()
+        return user.following.all()
 
 
 class FollowGetViewSet(
@@ -78,7 +78,7 @@ class FollowViewSet(
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, *args, **kwargs):
-        author_id = self.kwargs.get('id')
+        author_id = self.kwargs.get('user_id')
         author = get_object_or_404(User, id=author_id)
         get_object_or_404(
             Follow,
