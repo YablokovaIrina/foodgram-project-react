@@ -205,16 +205,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
         exclude = ('pub_date',)
 
-    def add_tags(self, tags, recipe):
-        tags = []
-        for tag in tags:
-            TagRecipe(
-                tag=tag,
-                recipe=recipe
-            )
-        TagRecipe.objects.bulk_create(tags)
-
-    def add_ingredient(self, ingredients, recipe):
+    def add_tags_ingredient(self, ingredients, recipe, tags, model):
         ingredients = []
         for ingredient in ingredients:
             IngredientRecipe(
@@ -224,13 +215,13 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             )
             ingredients.append(ingredient)
         IngredientRecipe.objects.bulk_create(ingredients)
+        model.tags.set(tags)
 
     def create(self, validated_data):
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
         recipe = Recipe.objects.create(**validated_data)
-        self.add_tags(tags, recipe)
-        self.add_ingredient(ingredients, recipe)
+        self.add_tags_ingredient(ingredients, recipe, tags)
         return recipe
 
     def update(self, instance, validated_data):
@@ -244,8 +235,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             instance.cooking_time
         )
         instance.save()
-        self.add_tags(tags, instance)
-        self.add_ingredient(ingredients, instance)
+        self.add_tags_ingredient(ingredients, instance, tags)
         return instance
 
 
