@@ -26,7 +26,8 @@ from .serializers import (FavouritesSerializer, FollowSerializer,
 
 
 class UsersViewSet(UserViewSet):
-
+    permission_classes = (CurrentUserPermission, )
+    
     def get_queryset(self):
         return User.objects.all()
 
@@ -37,47 +38,56 @@ class UsersViewSet(UserViewSet):
             return SetPasswordSerializer
         return UserFoodSerializer
 
-    def get_permissions(self):
-        if self.action == 'retrieve':
-            self.permission_classes = [permissions.IsAuthenticated]
-        return super().get_permissions()
-
     def validate_username(self, value):
         return validate_username(value)
 
-    @action(detail=True,
-            methods=['post', 'delete'],
-            permission_classes=[IsAuthenticated])
-    def subscribe(self, request, *args, **kwargs):
-        author = get_object_or_404(User, id=self.kwargs.get('pk'))
-        user = self.request.user
-        if request.method == 'POST':
-            serializer = FollowSerializer(
-                data=request.data,
-                context={'request': request, 'author': author})
-            if serializer.is_valid(raise_exception=True):
-                serializer.save(author=author, user=user)
-                return Response({'Подписка успешно создана': serializer.data},
-                                status=status.HTTP_201_CREATED)
-            return Response({'errors': 'Объект не найден'},
-                            status=status.HTTP_404_NOT_FOUND)
-        if Follow.objects.filter(author=author, user=user).exists():
-            Follow.objects.get(author=author).delete()
-            return Response('Успешная отписка',
-                            status=status.HTTP_204_NO_CONTENT)
-        return Response({'errors': 'Объект не найден'},
-                        status=status.HTTP_404_NOT_FOUND)
 
-    @action(detail=False,
-            methods=['get'],
-            permission_classes=[IsAuthenticated])
-    def subscriptions(self, request):
-        follows = Follow.objects.filter(user=self.request.user)
-        pages = self.paginate_queryset(follows)
-        serializer = FollowSerializer(pages,
-                                      many=True,
-                                      context={'request': request})
-        return self.get_paginated_response(serializer.data)
+class FollowBaseViewSet(viewsets.GenericViewSet):
+    serializer_class = FollowSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.context.get('request').user
+        return user.follower.all()
+
+
+class FollowGetViewSet(
+    mixins.ListModelMixin,
+    FollowBaseViewSet
+):
+    pagination_class = RecipesFollowsPagination
+
+
+class FollowViewSet(
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    FollowBaseViewSet
+):
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['author_id'] = self.kwargs.get('user_id')
+        return context
+
+    def create(self, request, *args, **kwargs):
+        author_id = self.kwargs.get('user_id')
+        author = get_object_or_404(User, id=author_id)
+        serializer = FollowSerializer(author)
+        Follow.objects.create(
+            user=request.user,
+            author=author
+        )
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, *args, **kwargs):
+        author_id = self.kwargs.get('id')
+        author = get_object_or_404(User, id=author_id)
+        get_object_or_404(
+            Follow,
+            user=request.user,
+            author=author
+        ).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TagViewSet(viewsets.ModelViewSet):

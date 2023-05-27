@@ -61,7 +61,7 @@ class FollowSerializer(serializers.ModelSerializer):
         read_only=True,
         source='author.email'
     )
-    id = serializers.CharField(
+    id = serializers.IntegerField(
         read_only=True,
         source='author.id'
     )
