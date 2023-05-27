@@ -88,7 +88,11 @@ class FollowViewSet(
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class TagViewSet(viewsets.ModelViewSet):
+class TagViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet
+):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = (AdminPermission | ReadOnlyPermission,)
