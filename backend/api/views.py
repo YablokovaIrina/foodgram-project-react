@@ -4,7 +4,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from djoser.serializers import SetPasswordSerializer
 from djoser.views import UserViewSet
 from rest_framework import mixins, permissions, status, viewsets
-from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,8 +25,7 @@ from .serializers import (FavouritesSerializer, FollowSerializer,
 
 
 class UsersViewSet(UserViewSet):
-    permission_classes = (CurrentUserPermission, )
-    
+
     def get_queryset(self):
         return User.objects.all()
 
