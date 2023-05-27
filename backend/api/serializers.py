@@ -111,18 +111,6 @@ class FollowSerializer(serializers.ModelSerializer):
             )
         return data
 
-    def get_recipes(self, obj):
-        queryset = obj.recipes.all()
-        limit = self.context['request'].query_params['recipes_limit']
-        if limit:
-            try:
-                limit = int(limit)
-                queryset = queryset[:limit]
-            except ValueError:
-                pass
-        serializer = RecipeFollowSerializer(queryset, many=True)
-        return serializer.data
-
     def get_recipes_count(self, obj):
         return obj.recipes.count()
 
