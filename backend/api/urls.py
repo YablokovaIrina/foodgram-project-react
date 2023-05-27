@@ -7,16 +7,6 @@ from .views import (FavouriteViewSet, FollowGetViewSet, FollowViewSet,
 
 router = DefaultRouter()
 
-router.register(
-    r'users/subscriptions/',
-    FollowGetViewSet,
-    basename='subscriptions'
-)
-router.register(
-    r'users/(?P<user_id>\d+)/subscribe/',
-    FollowViewSet,
-    basename='subscribe'
-)
 router.register('users', UsersViewSet, basename='users')
 router.register('tags', TagViewSet, basename='tags')
 router.register('ingredients', IngredientViewSet, basename='ingredients')
