@@ -3,7 +3,7 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
-                            ShoppingCart, Tag,)
+                            ShoppingCart, Tag, TagRecipe)
 from users.models import Follow, User
 
 
@@ -44,7 +44,6 @@ class UserFoodSerializer(serializers.ModelSerializer):
         return (
             user.is_authenticated
             and obj.follower.filter(
-                user=user,
                 author=obj
             ).exists()
         )
@@ -87,14 +86,9 @@ class FollowSerializer(serializers.ModelSerializer):
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
     def get_is_subscribed(self, obj):
-        user = self.context.get('request').user
-        return (
-            user.is_authenticated
-            and obj.following.filter(
-                user=user,
+        return obj.user.follower.filter(
                 author=obj
             ).exists()
-        )
 
     def validate(self, data):
         author_id = self.context.get(
@@ -110,6 +104,18 @@ class FollowSerializer(serializers.ModelSerializer):
                 detail='Невозможно подписаться на себя!',
             )
         return data
+
+    def get_recipes(self, obj):
+        queryset = obj.recipes.all() 
+        limit = self.context['request'].query_params['recipes_limit']
+        if limit:
+            try:
+                limit = int(limit)
+                queryset = queryset[:limit]
+            except ValueError:
+                pass
+        serializer = RecipeFollowSerializer(queryset, many=True)
+        return serializer.data
 
     def get_recipes_count(self, obj):
         return obj.recipes.count()
@@ -175,7 +181,8 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 
 class IngredientRecipeWriteSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.PrimaryKeyRelatedField(
+        queryset=Ingredient.objects.all())
     amount = serializers.IntegerField()
 
     class Meta:
@@ -189,7 +196,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     tags = serializers.ListField(
         child=serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all())
     )
-    ingredients = IngredientRecipeWriteSerializer(many=True)
+    ingredients = IngredientRecipeWriteSerializer(many=True, write_only=True)
     image = Base64ImageField()
     cooking_time = serializers.IntegerField()
 
@@ -205,7 +212,17 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
         exclude = ('pub_date',)
 
-    def add_tags_ingredient(self, ingredients, recipe, tags, model):
+    def add_tags(self, tags, recipe): 
+        tags = [] 
+        for tag in tags: 
+            TagRecipe( 
+                tag=tag, 
+                recipe=recipe 
+            )
+            tags.append(tag)
+        TagRecipe.objects.bulk_create(tags)
+
+    def add_ingredient(self, ingredients, recipe):
         ingredients = []
         for ingredient in ingredients:
             IngredientRecipe(
@@ -215,13 +232,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             )
             ingredients.append(ingredient)
         IngredientRecipe.objects.bulk_create(ingredients)
-        model.tags.set(tags)
 
     def create(self, validated_data):
+        request = self.context.get('request', None)
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
-        recipe = Recipe.objects.create(**validated_data)
-        self.add_tags_ingredient(ingredients, recipe, tags)
+        recipe = Recipe.objects.create(author=request.user, **validated_data)
+        self.add_ingredient(ingredients, recipe)
+        self.add_tags(tags, recipe)
         return recipe
 
     def update(self, instance, validated_data):
@@ -235,7 +253,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             instance.cooking_time
         )
         instance.save()
-        self.add_tags_ingredient(ingredients, instance, tags)
+        self.add_ingredient(ingredients, instance)
+        self.add_tags(tags, instance)
         return instance
 
 

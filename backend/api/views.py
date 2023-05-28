@@ -4,6 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from djoser.serializers import SetPasswordSerializer
 from djoser.views import UserViewSet
 from rest_framework import mixins, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -45,8 +46,7 @@ class FollowBaseViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.context.get('request').user
-        return user.following.all()
+        return self.request.user.follower.all()
 
 
 class FollowGetViewSet(
@@ -61,29 +61,24 @@ class FollowViewSet(
     mixins.DestroyModelMixin,
     FollowBaseViewSet
 ):
-
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['author_id'] = self.kwargs.get('user_id')
         return context
 
-    def create(self, request, *args, **kwargs):
-        author_id = self.kwargs.get('user_id')
-        author = get_object_or_404(User, id=author_id)
-        serializer = FollowSerializer(author)
-        Follow.objects.create(
-            user=request.user,
-            author=author
-        )
-        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+    def perform_create(self, serializer):
+        serializer.save(
+            user=self.request.user,
+            author=get_object_or_404(
+                User, id=self.kwargs.get('user_id')
+            ))
 
-    def delete(self, request, *args, **kwargs):
-        author_id = self.kwargs.get('user_id')
-        author = get_object_or_404(User, id=author_id)
+    @action(methods=['delete'], detail=True)
+    def delete(self, request, user_id):
         get_object_or_404(
             Follow,
             user=request.user,
-            author=author
+            author_id=user_id
         ).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -119,6 +114,38 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if self.request.method in SAFE_METHODS:
             return RecipeSerializer
         return RecipeWriteSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        serializer = RecipeSerializer(
+            instance=serializer.instance,
+            context={'request': self.request}
+        )
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED
+        )
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        serializer = RecipeSerializer(
+            instance=serializer.instance,
+            context={'request': self.request}
+        )
+        return Response(
+            serializer.data, status=status.HTTP_200_OK
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
 
 class FavouriteViewSet(
@@ -201,22 +228,21 @@ class ShoppingListDownload(APIView):
         )
         return self._create_shopping_list(self.get_queryset(), response)
 
-    def _create_shopping_list(self, response, request):
-        shopping_cart = self.request.user.shopping_cart.all()
-        shopping_list = {}
-        response.write('Мой список продуктов:\n')
-        for item in shopping_cart:
+    def _create_shopping_list(self, queryset, response):
+        ingredients_and_amount = {}
+        response.write('Список продуктов:\n')
+        for item in queryset:
             ingredients_recipe = IngredientRecipe.objects.filter(
                 recipe=item.recipe
             )
             for row in ingredients_recipe:
                 ingredient = row.ingredient
                 amount = row.amount
-                if ingredient in shopping_list:
-                    shopping_list[ingredient] += amount
+                if ingredient in ingredients_and_amount:
+                    ingredients_and_amount[ingredient] += amount
                 else:
-                    shopping_list[ingredient] = amount
-        for ingredient, amount in shopping_list.items():
+                    ingredients_and_amount[ingredient] = amount
+        for ingredient, amount in ingredients_and_amount.items():
             response.write(f'\n{ingredient.name}')
             response.write((f' ({ingredient.measurement_unit})'))
             response.write(f' - {amount}')
