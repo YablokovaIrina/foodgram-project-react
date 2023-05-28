@@ -95,7 +95,7 @@ class FollowSerializer(serializers.ModelSerializer):
             'request').parser_context.get('kwargs').get('id')
         author = get_object_or_404(User, id=author_id)
         user = self.context.get('request').user
-        if user.following.filter(author=author).exists():
+        if user.follower.filter(author=author).exists():
             raise serializers.ValidationError(
                 detail='Вы уже подписаны на этого автора!',
             )
@@ -212,34 +212,24 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
         exclude = ('pub_date',)
 
-    def add_tags(self, tags, recipe): 
-        tags = [] 
-        for tag in tags: 
-            TagRecipe( 
-                tag=tag, 
-                recipe=recipe 
-            )
-            tags.append(tag)
-        TagRecipe.objects.bulk_create(tags)
-
     def add_ingredient(self, ingredients, recipe):
-        ingredients = []
+        recipe.ingredients.clear()
+        ingredients_list = []
         for ingredient in ingredients:
-            IngredientRecipe(
+            ingredients_list.append(
+                IngredientRecipe(
                 recipe=recipe,
                 amount=ingredient['amount'],
                 ingredient=ingredient['id']
-            )
-            ingredients.append(ingredient)
-        IngredientRecipe.objects.bulk_create(ingredients)
+            ))
+        IngredientRecipe.objects.bulk_create(ingredients_list)
 
     def create(self, validated_data):
-        request = self.context.get('request', None)
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
-        recipe = Recipe.objects.create(author=request.user, **validated_data)
+        recipe = Recipe.objects.create(**validated_data)
+        recipe.tags.set(tags)
         self.add_ingredient(ingredients, recipe)
-        self.add_tags(tags, recipe)
         return recipe
 
     def update(self, instance, validated_data):
@@ -254,7 +244,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
         instance.save()
         self.add_ingredient(ingredients, instance)
-        self.add_tags(tags, instance)
+        instance.tags.set(tags)
         return instance
 
 
