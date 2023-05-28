@@ -22,13 +22,12 @@ from .serializers import (FavouritesSerializer, FollowSerializer,
                           IngredientSerializer, RecipeSerializer,
                           RecipeWriteSerializer, ShoppingCartSerializer,
                           TagSerializer, UserFoodCreateSerializer,
-                          UserFoodSerializer,)
+                          UserFoodSerializer)
 
 
 class UsersViewSet(UserViewSet):
-
-    def get_queryset(self):
-        return User.objects.all()
+    pagination_class = RecipesFollowsPagination
+    queryset = User.objects.all()
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -40,46 +39,53 @@ class UsersViewSet(UserViewSet):
     def validate_username(self, value):
         return validate_username(value)
 
-
-class FollowBaseViewSet(viewsets.GenericViewSet):
-    serializer_class = FollowSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.request.user.following.all()
-
-class FollowGetViewSet(
-    mixins.ListModelMixin,
-    FollowBaseViewSet
-):
-    pagination_class = RecipesFollowsPagination
-
-
-class FollowViewSet(
-    mixins.CreateModelMixin,
-    mixins.DestroyModelMixin,
-    FollowBaseViewSet
-):
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['author_id'] = self.kwargs.get('user_id')
-        return context
-
-    def perform_create(self, serializer):
-        serializer.save(
-            user=self.request.user,
-            author=get_object_or_404(
-                User, id=self.kwargs.get('user_id')
-            ))
-
-    @action(methods=['delete'], detail=True)
-    def delete(self, request, user_id):
-        get_object_or_404(
-            Follow,
-            user=request.user,
-            author_id=user_id
-        ).delete()
+    def __get_add_delete_follow(self, request, id):
+        """Создаёт или удалет связь между пользователями."""
+        user = get_object_or_404(User, username=request.user)
+        author = get_object_or_404(User, id=id)
+        if user == author:
+            return Response(
+                {'errors': 'Нельзя отписываться или подписываться на себя.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if request.method == 'POST':
+            if Follow.objects.filter(user=user, author=author).exists():
+                return Response(
+                    {'errors': 'Вы уже подписаны на этого автора.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            follow = Follow.objects.create(user=user, author=author)
+            serializer = FollowSerializer(
+                follow, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        get_object_or_404(Follow, user=user, author=author).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=('post',), detail=True,
+            permission_classes=(IsAuthenticated,))
+    def subscribe(self, request, id=None):
+        """Создаёт связь между пользователями."""
+        return self.__get_add_delete_follow(request, id)
+
+    @subscribe.mapping.delete
+    def delete_subscribe(self, request, id=None):
+        """Удаляет связь между пользователями."""
+        return self.__get_add_delete_follow(request, id)
+
+    @action(methods=('get',), detail=False,
+            permission_classes=(IsAuthenticated,))
+    def subscriptions(self, request):
+        """Список подписок пользователя."""
+        user = request.user
+        if user.is_anonymous:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        queryset = Follow.objects.filter(user=user)
+        pages = self.paginate_queryset(queryset)
+        serializer = FollowSerializer(
+            pages, many=True, context={'request': request}
+        )
+        return self.get_paginated_response(serializer.data)
 
 
 class TagViewSet(

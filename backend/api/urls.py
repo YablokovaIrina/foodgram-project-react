@@ -3,21 +3,10 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (FavouriteViewSet, IngredientViewSet,
                     RecipeViewSet, ShoppingCartViewSet,
-                    ShoppingListDownload, TagViewSet, UsersViewSet,
-                    FollowGetViewSet, FollowViewSet)
+                    ShoppingListDownload, TagViewSet, UsersViewSet,)
 
 router = DefaultRouter()
 
-router.register(
-    'users/subscriptions',
-    FollowGetViewSet,
-    basename='subscriptions'
-)
-router.register(
-    r'users/(?P<user_id>\d+)/subscribe',
-    FollowViewSet,
-    basename='subscribe'
-)
 router.register('users', UsersViewSet, basename='users')
 router.register('tags', TagViewSet, basename='tags')
 router.register('ingredients', IngredientViewSet, basename='ingredients')

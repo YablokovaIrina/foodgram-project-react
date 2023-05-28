@@ -3,7 +3,7 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
-                            ShoppingCart, Tag, TagRecipe)
+                            ShoppingCart, Tag)
 from users.models import Follow, User
 
 
@@ -43,8 +43,8 @@ class UserFoodSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and obj.follower.filter(
-                author=obj
+            and obj.following.filter(
+                user=user
             ).exists()
         )
 
@@ -85,17 +85,18 @@ class FollowSerializer(serializers.ModelSerializer):
         fields = ('email', 'id', 'username', 'first_name',
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
-    def get_is_subscribed(self, obj):
-        return obj.user.follower.filter(
-                author=obj
-            ).exists()
+    def get_is_subscribed(self, author):
+        """Проверяет подписан ли текущий пользователь на автора."""
+        user = self.context.get('request').user
+        return not user.is_anonymous and Follow.objects.filter(
+            user=user, author=author.author).exists()
 
     def validate(self, data):
         author_id = self.context.get(
             'request').parser_context.get('kwargs').get('id')
         author = get_object_or_404(User, id=author_id)
         user = self.context.get('request').user
-        if user.follower.filter(author=author).exists():
+        if user.following.filter(author=author).exists():
             raise serializers.ValidationError(
                 detail='Вы уже подписаны на этого автора!',
             )
@@ -106,8 +107,8 @@ class FollowSerializer(serializers.ModelSerializer):
         return data
 
     def get_recipes(self, obj):
-        queryset = obj.recipes.all() 
-        limit = self.context['request'].query_params['recipes_limit']
+        queryset = obj.user.recipes.all()
+        limit = self.context['request'].query_params.get('recipes_limit')
         if limit:
             try:
                 limit = int(limit)
@@ -118,7 +119,7 @@ class FollowSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def get_recipes_count(self, obj):
-        return obj.recipes.count()
+        return obj.user.recipes.count()
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -218,10 +219,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         for ingredient in ingredients:
             ingredients_list.append(
                 IngredientRecipe(
-                recipe=recipe,
-                amount=ingredient['amount'],
-                ingredient=ingredient['id']
-            ))
+                    recipe=recipe,
+                    amount=ingredient['amount'],
+                    ingredient=ingredient['id']
+                ))
         IngredientRecipe.objects.bulk_create(ingredients_list)
 
     def create(self, validated_data):
