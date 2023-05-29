@@ -5,7 +5,9 @@ from djoser.serializers import SetPasswordSerializer
 from djoser.views import UserViewSet
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
+from rest_framework.serializers import ListSerializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -28,6 +30,9 @@ from .serializers import (FavouritesSerializer, FollowSerializer,
 class UsersViewSet(UserViewSet):
     pagination_class = RecipesFollowsPagination
     queryset = User.objects.all()
+    permission_classes = (
+        AdminPermission | ReadOnlyPermission,
+    )
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -40,7 +45,6 @@ class UsersViewSet(UserViewSet):
         return validate_username(value)
 
     def __get_add_delete_follow(self, request, id):
-        """Создаёт или удалет связь между пользователями."""
         user = get_object_or_404(User, username=request.user)
         author = get_object_or_404(User, id=id)
         if user == author:
@@ -65,21 +69,16 @@ class UsersViewSet(UserViewSet):
     @action(methods=('post',), detail=True,
             permission_classes=(IsAuthenticated,))
     def subscribe(self, request, id=None):
-        """Создаёт связь между пользователями."""
         return self.__get_add_delete_follow(request, id)
 
     @subscribe.mapping.delete
     def delete_subscribe(self, request, id=None):
-        """Удаляет связь между пользователями."""
         return self.__get_add_delete_follow(request, id)
 
     @action(methods=('get',), detail=False,
             permission_classes=(IsAuthenticated,))
     def subscriptions(self, request):
-        """Список подписок пользователя."""
         user = request.user
-        if user.is_anonymous:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
         queryset = Follow.objects.filter(user=user)
         pages = self.paginate_queryset(queryset)
         serializer = FollowSerializer(

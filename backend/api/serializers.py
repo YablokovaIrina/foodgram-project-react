@@ -1,7 +1,9 @@
 from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
+from rest_framework.serializers import ValidationError
 
+from foodgram.settings import MIN_COOKING_TIME, MAX_COOKING_TIME, MIN_AMOUNT, MAX_AMOUNT
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
                             ShoppingCart, Tag)
 from users.models import Follow, User
@@ -86,7 +88,6 @@ class FollowSerializer(serializers.ModelSerializer):
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
     def get_is_subscribed(self, author):
-        """Проверяет подписан ли текущий пользователь на автора."""
         user = self.context.get('request').user
         return not user.is_anonymous and Follow.objects.filter(
             user=user, author=author.author).exists()
@@ -184,7 +185,9 @@ class RecipeSerializer(serializers.ModelSerializer):
 class IngredientRecipeWriteSerializer(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(
         queryset=Ingredient.objects.all())
-    amount = serializers.IntegerField()
+    amount = serializers.IntegerField(
+        min_value=MIN_AMOUNT,
+        max_value=MAX_AMOUNT)
 
     class Meta:
         model = IngredientRecipe
@@ -199,7 +202,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     )
     ingredients = IngredientRecipeWriteSerializer(many=True, write_only=True)
     image = Base64ImageField()
-    cooking_time = serializers.IntegerField()
+    cooking_time = serializers.IntegerField(
+        min_value=MIN_COOKING_TIME,
+        max_value=MAX_COOKING_TIME
+    )
 
     class Meta:
         model = Recipe
@@ -258,7 +264,7 @@ class FavouritesSerializer(serializers.ModelSerializer):
         source='favorite_recipe.image',
         read_only=True
     )
-    coocking_time = serializers.IntegerField(
+    cooking_time = serializers.IntegerField(
         source='favorite_recipe.cooking_time',
         read_only=True
     )
@@ -288,7 +294,7 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         source='recipe.image',
         read_only=True
     )
-    coocking_time = serializers.IntegerField(
+    cooking_time = serializers.IntegerField(
         source='recipe.cooking_time',
         read_only=True
     )
