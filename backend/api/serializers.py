@@ -1,9 +1,9 @@
 from django.shortcuts import get_object_or_404
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
-from rest_framework.serializers import ValidationError
 
-from foodgram.settings import MIN_COOKING_TIME, MAX_COOKING_TIME, MIN_AMOUNT, MAX_AMOUNT
+from foodgram.settings import (MIN_COOKING_TIME, MAX_COOKING_TIME,
+                               MIN_AMOUNT, MAX_AMOUNT)
 from recipes.models import (Favourites, Ingredient, IngredientRecipe, Recipe,
                             ShoppingCart, Tag)
 from users.models import Follow, User
